@@ -174,7 +174,7 @@ def prepare_inst_gt(val_out_dir, val_gt_folder, semantic_label_idxs):
 
 
 if __name__ == '__main__':
-    city = "Qingdao"  # "Wuhu" or "Longhua" or "Yuehai" or "Lihu" or "Yingrenshi" (only has test set)
+    city = "stpls3d"  # "Wuhu" or "Longhua" or "Yuehai" or "Lihu" or "Yingrenshi" (only has test set)
     data_folder = os.path.join(os.path.dirname(os.getcwd()), 'UrbanBIS')
     os.makedirs(os.path.join(data_folder, "processed", city), exist_ok=True)
 
@@ -195,9 +195,24 @@ if __name__ == '__main__':
     test_out_dir = os.path.join(data_folder, "processed", city, split)
     os.makedirs(test_out_dir, exist_ok=True)
     prepare_pth_files(test_files_dir, split, test_out_dir)
-
-    semantic_label_idxs = [0, 1, 2, 3, 4, 5, 6]
-    semantic_label_names = ['terrain', 'vegetation', 'water', 'bridge', 'vehicle', 'boat', 'building']
+    if city == 'Qingdao':
+        semantic_label_idxs = [0, 1, 2, 3, 4, 5, 6]
+        semantic_label_names = ['terrain', 'vegetation', 'water', 'bridge', 'vehicle', 'boat', 'building']
+    elif city == 'stpls3d':
+        # Assuming mapping based on the provided color_mapping
+        semantic_label_idxs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        semantic_label_names = ['terrain', 'truck', 'low vegetation', 'medium vegetation', 'high vegetation', 'vehicle',
+                                'building', 'aircraft', 'military vehicle', 'bike', 'motorcycle', 'light pole',
+                                'street sign', 'clutter', 'fence', 'road', 'grass']
+    elif city == 'whu3d':
+        # Based on the provided label_mapping from whu3d
+        semantic_label_idxs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        semantic_label_names = ['bridge', 'building', 'water', 'tree', 'vegetation', 'low vegetation', 'light',
+                                'electric', 'ground', 'others', 'vehicle', 'non vehicle']
+    else:
+        # Default or unrecognized city
+        semantic_label_idxs = [0, 1, 2, 3, 4, 5, 6]
+        semantic_label_names = ['terrain', 'vegetation', 'water', 'bridge', 'vehicle', 'boat', 'building']
 
     val_gt_folder = os.path.join(data_folder, "processed", city, 'val_gt')
     os.makedirs(val_gt_folder, exist_ok=True)
