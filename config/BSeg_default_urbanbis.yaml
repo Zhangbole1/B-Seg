@@ -40,7 +40,7 @@ STRUCTURE:
   using_rgb: True
   using_normal: False
   block_residual: True
-  block_reps: 2
+  block_reps: 3
 
   use_coords: True
 

@@ -17,8 +17,11 @@ from util import utils
 
 
 class ResidualBlock(SparseModule):
-    def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
+    def __init__(self, in_channels, out_channels, norm_fn, indice_key=None, dilation_rates=None, layer_idx=0):
         super().__init__()
+
+        if in_channels == 0 or out_channels == 0:
+            raise ValueError(f"Invalid channels: in_channels={in_channels}, out_channels={out_channels}")
 
         if in_channels == out_channels:
             self.i_branch = spconv.SparseSequential(
@@ -29,13 +32,16 @@ class ResidualBlock(SparseModule):
                 spconv.SubMConv3d(in_channels, out_channels, kernel_size=1, bias=False)
             )
 
+        # 根据 layer_idx 获取对应的空洞率
+        dilation_rate = dilation_rates[layer_idx] if dilation_rates is not None else 1
+
         self.conv_branch = spconv.SparseSequential(
             norm_fn(in_channels),
             nn.ReLU(),
-            spconv.SubMConv3d(in_channels, out_channels, kernel_size=3, padding=1, bias=False, indice_key=indice_key),
+            spconv.SubMConv3d(in_channels, out_channels, kernel_size=3, padding=1, bias=False, dilation=dilation_rate, indice_key=indice_key),
             norm_fn(out_channels),
             nn.ReLU(),
-            spconv.SubMConv3d(out_channels, out_channels, kernel_size=3, padding=1, bias=False, indice_key=indice_key)
+            spconv.SubMConv3d(out_channels, out_channels, kernel_size=3, padding=1, bias=False, dilation=dilation_rate, indice_key=indice_key)
         )
 
     def forward(self, input):
@@ -62,38 +68,39 @@ class VGGBlock(SparseModule):
 
 
 class UBlock(nn.Module):
-    def __init__(self, nPlanes, norm_fn, block_reps, block, indice_key_id=1):
-
+    def __init__(self, nPlanes, norm_fn, block_reps, block, indice_key_id=1, dilation_rates=None):
         super().__init__()
 
         self.nPlanes = nPlanes
 
-        blocks = {'block{}'.format(i): block(nPlanes[0], nPlanes[0], norm_fn, indice_key='subm{}'.format(indice_key_id))
+        # 通过nPlanes传递不同的通道数，而不是逐步缩减
+        blocks = {'block{}'.format(i): block(nPlanes[0], nPlanes[0], norm_fn, indice_key='subm{}'.format(indice_key_id), dilation_rates=dilation_rates, layer_idx=i)
                   for i in range(block_reps)}
         blocks = OrderedDict(blocks)
         self.blocks = spconv.SparseSequential(blocks)
 
         if len(nPlanes) > 1:
+            dilation_rate = dilation_rates[0] if dilation_rates is not None else 1
             self.conv = spconv.SparseSequential(
                 norm_fn(nPlanes[0]),
                 nn.ReLU(),
-                spconv.SparseConv3d(nPlanes[0], nPlanes[1], kernel_size=2, stride=2, bias=False,
-                                    indice_key='spconv{}'.format(indice_key_id))
+                spconv.SubMConv3d(nPlanes[0], nPlanes[1], kernel_size=2, stride=2, bias=False,
+                                  indice_key='spconv{}'.format(indice_key_id), dilation=dilation_rate)
             )
 
-            self.u = UBlock(nPlanes[1:], norm_fn, block_reps, block, indice_key_id=indice_key_id + 1)
+            self.u = UBlock(nPlanes[1:], norm_fn, block_reps, block, indice_key_id=indice_key_id + 1, dilation_rates=dilation_rates)
 
             self.deconv = spconv.SparseSequential(
                 norm_fn(nPlanes[1]),
                 nn.ReLU(),
-                spconv.SparseInverseConv3d(nPlanes[1], nPlanes[0], kernel_size=2, bias=False,
-                                           indice_key='spconv{}'.format(indice_key_id))
+                spconv.SubMConv3d(nPlanes[1], nPlanes[0], kernel_size=2, bias=False,
+                                  indice_key='spconv{}'.format(indice_key_id), dilation=dilation_rate)
             )
 
             blocks_tail = {}
             for i in range(block_reps):
                 blocks_tail['block{}'.format(i)] = block(nPlanes[0] * (2 - i), nPlanes[0], norm_fn,
-                                                         indice_key='subm{}'.format(indice_key_id))
+                                                         indice_key='subm{}'.format(indice_key_id), dilation_rates=dilation_rates, layer_idx=i)
             blocks_tail = OrderedDict(blocks_tail)
             self.blocks_tail = spconv.SparseSequential(blocks_tail)
 
@@ -111,7 +118,6 @@ class UBlock(nn.Module):
             output = self.blocks_tail(output)
 
         return output
-
 
 class BSeg(nn.Module):
     def __init__(self, cfg):
@@ -152,8 +158,11 @@ class BSeg(nn.Module):
             spconv.SubMConv3d(input_c, m, kernel_size=3, padding=1, bias=False, indice_key='subm1')
         )
 
-        self.unet = UBlock([m, 2 * m, 3 * m, 4 * m, 5 * m, 6 * m, 7 * m], norm_fn, block_reps, block,
-                           indice_key_id=1)
+        # 空洞率序列
+        dilation_rates = [1, 2]  # 不同的空洞率序列
+
+        # 在模型初始化时传递空洞率序列
+        self.unet = UBlock([m, 2 * m, 3 * m, 4 * m], norm_fn, block_reps, block, indice_key_id=1, dilation_rates=dilation_rates)
 
         self.output_layer = spconv.SparseSequential(
             norm_fn(m),
