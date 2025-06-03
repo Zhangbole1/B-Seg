@@ -631,6 +631,8 @@ def model_fn_decorator(test=False):
         # semantic_labels: (N), long, cuda
 
         semantic_loss = semantic_criterion(semantic_scores, semantic_labels)
+        semantic_labels = semantic_labels.clone()
+        semantic_labels[semantic_labels == -100] = 0
         one_hot_labels = F.one_hot(semantic_labels, num_classes=cfg.classes)
         semantic_scores_softmax = F.softmax(semantic_scores, dim=-1)
         semantic_loss += utils.dice_loss_multi_classes(semantic_scores_softmax, one_hot_labels).mean()

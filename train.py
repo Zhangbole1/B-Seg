@@ -32,6 +32,7 @@ def init():
     torch.manual_seed(cfg.manual_seed)
     torch.cuda.manual_seed_all(cfg.manual_seed)
 
+
 def train_epoch(train_loader, model, model_fn, optimizer, epoch):
     data_time = utils.AverageMeter()
     am_dict = {}
@@ -39,13 +40,14 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
     model.train()
     start_epoch = time.time()
     end = time.time()
+
+    total_labels = 0  # 总标签数
+    total_negative_100 = 0  # -100标签数
+
     for i, batch in enumerate(train_loader):
-        if batch['locs'].shape[0] < 20000:
-            logger.info("point num < 20000, continue")
-            continue
-        if torch.unique(batch['instance_labels']).shape[0] <= 2:
-            logger.info("instance num < 2, continue")
-            continue
+        # 获取当前批次的标签
+        labels = batch['labels']
+        labels[labels == -100] = 0
 
         data_time.update(time.time() - end)
         torch.cuda.empty_cache()
@@ -67,13 +69,14 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         loss.backward()
         optimizer.step()
 
-    logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg, time.time() - start_epoch))
+    logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg,
+                                                                     time.time() - start_epoch))
 
     utils.checkpoint_save(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], epoch, cfg.save_freq, use_cuda)
 
     for k in am_dict.keys():
         if k in visual_dict.keys():
-            writer.add_scalar(k+'_train', am_dict[k].avg, epoch)
+            writer.add_scalar(k + '_train', am_dict[k].avg, epoch)
 
 
 def eval_epoch(val_loader, model, model_fn, epoch):

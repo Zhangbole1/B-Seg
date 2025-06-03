@@ -23,9 +23,9 @@ os.makedirs(test_folder, exist_ok=True)
 total_files = len(txt_files)
 
 # 计算每个集的文件数量
-train_count = int(total_files * 0.9)  # 训练集比例：90%
-val_count = int(total_files * 0.05)  # 验证集比例：5%
-test_count = total_files - train_count - val_count  # 测试集比例：5%
+train_count = int(total_files * 0.7)  # 训练集比例：70%
+val_count = int(total_files * 0.15)  # 验证集比例：15%
+test_count = total_files - train_count - val_count  # 测试集比例：15%
 
 # 拷贝并重命名文件，然后分配到相应文件夹
 for i, txt_file in enumerate(txt_files, start=1):
