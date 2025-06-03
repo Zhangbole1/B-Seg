@@ -76,11 +76,15 @@ def prepare_pth_files(files_dir, split, output_folder, aug_times=0):
                 if (len(block) > 50000):
                     out_file_path = os.path.join(output_folder, city + "_" + name + str(blockNum) + '_inst_nostuff.pth')
                     if (block[:, 2].max(0) - block[:, 2].min(0) < z_threshold):
-                        block = np.append(block, [[block[:, 0].mean(0), block[:, 1].mean(0),
-                                                   block[:, 2].max(0) + (
-                                                           z_threshold - (block[:, 2].max(0) - block[:, 2].min(0))),
-                                                   block[:, 3].mean(0), block[:, 4].mean(0), block[:, 5].mean(0),
-                                                   -100, -100]], axis=0)
+                        if block.shape[1] == 9:  # Check if the block has 9 columns (as expected)
+                            block = np.append(block, [[block[:, 0].mean(0), block[:, 1].mean(0),
+                                                       block[:, 2].max(0) + (
+                                                               z_threshold - (block[:, 2].max(0) - block[:, 2].min(0))),
+                                                       block[:, 3].mean(0), block[:, 4].mean(0), block[:, 5].mean(0),
+                                                       -100, -100]], axis=0)
+                        else:
+                            print(f"Skipping file {file} due to dimension mismatch: {block.shape[1]} columns")
+
                         print("range z is smaller than threshold ")
                         print(name + str(blockNum) + '_inst_nostuff')
                     if split != 'test':
