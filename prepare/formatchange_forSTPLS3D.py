@@ -53,22 +53,17 @@ for file_name in os.listdir(input_folder):
         semantic_labels[semantic_labels == 6] = 1
         semantic_labels[semantic_labels == -1] = 6
 
-        # 细粒度建筑分类设置为 1 (默认：Residential)
-        fine_grained_building_category = np.ones_like(instance_labels)  # 所有建筑物实例的细粒度分类设置为 1
+        # 细粒度建筑分类设置为 1
+        fine_grained_building_category = np.where(semantic_labels == 6, 1, -100)
 
         # 处理每一行数据并保存为新的格式
-        output_data = np.column_stack((
-            coords,                  # x, y, z 坐标
-            colors,                  # r, g, b 颜色
-            semantic_labels,         # 语义标签
-            instance_labels,         # 实例标签
-            fine_grained_building_category  # 细粒度建筑分类
-        ))
+        output_data = np.column_stack((coords, colors, semantic_labels, instance_labels, fine_grained_building_category))
 
         # 生成输出文件路径
         output_file_path = os.path.join(output_folder, f"{file_name}")
 
         # 保存到新的txt文件
-        np.savetxt(output_file_path, output_data, fmt='%.6f', delimiter=' ')
+        # 修改 fmt 部分：前 3 列为浮点数格式，后 6 列为整数格式
+        np.savetxt(output_file_path, output_data, fmt='%.4f %.4f %.4f %d %d %d %d %d %d', delimiter=' ')
 
         print(f"Converted {file_name} and saved to {output_file_path}")

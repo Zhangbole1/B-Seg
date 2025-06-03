@@ -100,5 +100,5 @@ for h5_file in tqdm(h5_files, desc="Processing H5 files"):
     output_file_path = os.path.join(output_folder, f'{h5_file}.txt')
 
     # 保存为 txt 文件
-    np.savetxt(output_file_path, point_cloud_data, fmt='%.4f', delimiter=' ')
+    np.savetxt(output_file_path, point_cloud_data, fmt='%.4f %.4f %.4f %d %d %d %d %d %d', delimiter=' ')
     # print(f'Saved {h5_file} to {output_file_path}')
