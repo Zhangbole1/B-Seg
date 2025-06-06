@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
 
     ##### resume
-    start_epoch = utils.checkpoint_restore(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], use_cuda)  # resume from the latest epoch, or specify the epoch to restore
+    start_epoch = utils.checkpoint_restore(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], use_cuda,second_model_path="./exp/Qingdao/BSeg/BSeg_default_urbanbis/bsd_best.pth")  # resume from the latest epoch, or specify the epoch to restore
 
     ##### train and val
     for epoch in range(start_epoch, cfg.epochs + 1):

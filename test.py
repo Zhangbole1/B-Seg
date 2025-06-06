@@ -77,6 +77,14 @@ def test(model, model_fn, data_name, epoch):
                     scores_pred = torch.sigmoid(scores.view(-1))
 
                     proposals_idx, proposals_offset = preds['proposals']
+                    # 计算当前样本的平均得分
+                    avg_score = scores_pred.mean().item()  # 计算当前样本的平均得分
+                    logger.info(f"{test_scene_name} 的平均得分: {avg_score}")
+
+                    ap_scores = eval.evaluate_matches(matches)
+                    avgs = eval.compute_averages(ap_scores)
+                    eval.print_results(avgs)
+
                     # proposals_idx: (sumNPoint, 2), int, cpu, [:, 0] for cluster_id, [:, 1] for corresponding point idxs in N
                     # proposals_offset: (nProposal + 1), int, cpu
                     proposals_pred = torch.zeros((proposals_offset.shape[0] - 1, N), dtype=torch.int, device=scores_pred.device)

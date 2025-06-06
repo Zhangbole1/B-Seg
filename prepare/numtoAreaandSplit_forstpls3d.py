@@ -23,9 +23,12 @@ os.makedirs(test_folder, exist_ok=True)
 total_files = len(txt_files)
 
 # 计算每个集的文件数量
-train_count = int(total_files * 0.4)  # 训练集比例：40%(1-9)，area4出现只有8列的情况
-val_count = int(total_files * 0.3)  # 验证集比例：30%(10-13,18-21)
-test_count = total_files - train_count - val_count  # 测试集比例：30%(14-17,22-25)-经过分割->(26-42)
+train_count = int(total_files * 0.6)  # 训练集比例：60%
+val_count = int(total_files * 0.2)  # 验证集比例：20%
+test_count = total_files - train_count - val_count  # 测试集比例：20%
+
+# 全局计数器，用于命名拆分后的文件
+counter = 1
 
 # 拷贝并重命名文件，然后分配到相应文件夹
 for i, txt_file in enumerate(txt_files, start=1):
@@ -39,15 +42,32 @@ for i, txt_file in enumerate(txt_files, start=1):
     else:
         destination_folder = test_folder
 
-    # 生成新文件名
-    new_name = f'Area{i}.txt'
-    destination_path = os.path.join(destination_folder, new_name)
+    # 打开原始文件
+    with open(old_path, 'r') as file:
+        lines = file.readlines()
 
-    # 拷贝文件到目标文件夹
-    shutil.copy2(old_path, destination_path)
-    print(f'Copied {txt_file} to {destination_path}')
+    # 计算每一份的大小（每个文件分为3部分）
+    total_lines = len(lines)
+    part_size = total_lines // 3
 
-    # 在目标文件夹内对文件进行重命名
-    # 文件已经被拷贝，所以重命名的操作是在目标文件夹中
-    os.rename(destination_path, os.path.join(destination_folder, new_name))
-    print(f'Renamed {txt_file} to {new_name}')
+    # 拆分并保存文件
+    for j in range(3):
+        # 每部分的数据
+        start_idx = j * part_size
+        end_idx = start_idx + part_size if j < 2 else total_lines  # 确保最后一部分包括所有剩余的行
+        part_lines = lines[start_idx:end_idx]
+
+        # 生成新文件名：Area + 数字
+        new_name = f'Area{counter}.txt'  # 使用 Area + 数字 格式，counter 是全局计数器
+        destination_path = os.path.join(destination_folder, new_name)
+
+        # 将拆分后的数据写入新的文件
+        with open(destination_path, 'w') as new_file:
+            new_file.writelines(part_lines)
+
+        print(f'Created {new_name} in {destination_folder}')
+
+        # 更新计数器
+        counter += 1
+
+print("All files have been split and saved.")

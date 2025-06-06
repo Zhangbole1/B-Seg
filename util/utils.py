@@ -46,34 +46,74 @@ def intersectionAndUnion(output, target, K, ignore_index=255):
     return area_intersection, area_union, area_target
 
 
-def checkpoint_restore(model, exp_path, exp_name, use_cuda=True, epoch=0, dist=False, f=''):
+def checkpoint_restore(model, exp_path, exp_name, use_cuda=True, epoch=0, dist=False, f='', second_model_path=None):
+    # 将模型转到CPU
     if use_cuda:
         model.cpu()
+
+    # 如果没有指定文件，选择加载最新的模型
     if not f:
         if epoch > 0:
-            f = os.path.join(exp_path, exp_name + '-%09d'%epoch + '.pth')
+            f = os.path.join(exp_path, exp_name + '-%09d' % epoch + '.pth')
             assert os.path.isfile(f)
         else:
             f = sorted(glob.glob(os.path.join(exp_path, exp_name + '-*.pth')))
             if len(f) > 0:
                 f = f[-1]
-                epoch = int(f[len(exp_path) + len(exp_name) + 2 : -4])
+                epoch = int(f[len(exp_path) + len(exp_name) + 2: -4])
 
     if len(f) > 0:
         logger.info('Restore from ' + f)
         checkpoint = torch.load(f)
 
+        # 去掉'module.'前缀（如果存在）
         for k, v in checkpoint.items():
             if 'module.' in k:
                 checkpoint = {k[len('module.'):]: v for k, v in checkpoint.items()}
             break
-        if dist:
-            model.module.load_state_dict(checkpoint)
-        else:
-            model.load_state_dict(checkpoint)
 
+        # 加载模型1的权重，strict=False 允许部分不匹配
+        try:
+            if dist:
+                model.module.load_state_dict(checkpoint, strict=False)
+            else:
+                model.load_state_dict(checkpoint, strict=False)
+        except RuntimeError as e:
+            logger.error(f"Error loading checkpoint: {e}")
+            raise RuntimeError(f"Failed to load checkpoint {f}. Some layers were not loaded.")
+
+    # 如果第二个模型路径提供了，我们使用它填充缺失的权重
+    if second_model_path is not None:
+        # 加载第二个模型的权重
+        logger.info(f"Loading missing parameters from the second model: {second_model_path}")
+        second_checkpoint = torch.load(second_model_path)
+
+        # 打印出 second_checkpoint 的内容，查看有哪些键
+        logger.info(f"Keys in second checkpoint: {second_checkpoint.keys()}")
+
+        # 根据第二个模型的结构调整这里
+        # 比如，如果第二个模型权重存储在 'state_dict' 键下，则使用： second_state_dict = second_checkpoint['state_dict']
+        second_state_dict = second_checkpoint  # 假设第二个模型没有嵌套，需要直接使用 second_checkpoint
+
+        # 获取第一个模型的state_dict
+        model_state_dict = model.state_dict()
+
+        # 筛选缺失的参数，并用第二个模型填充
+        missing_params = {k: v for k, v in second_state_dict.items() if k not in model_state_dict}
+        for name, param in missing_params.items():
+            if name in model_state_dict:
+                model_state_dict[name] = param
+            else:
+                print(f"Layer {name} is not in the model, skipping.")
+
+        # 更新模型的state_dict
+        model.load_state_dict(model_state_dict)
+        logger.info("Successfully loaded missing parameters from the second model.")
+
+    # 将模型转到GPU（如果需要）
     if use_cuda:
         model.cuda()
+
     return epoch + 1
 
 
